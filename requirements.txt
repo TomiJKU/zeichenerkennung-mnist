@@ -1,0 +1,7 @@
+numpy
+pillow
+tensorflow
+scikit-learn
+matplotlib
+tf2onnx
+onnxruntime
