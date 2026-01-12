@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageDraw
+from app.preprocessing import pil_to_mnist_tensor
+
 
 CANVAS_SIZE = 280          # 10x größer als 28, später downsampling
 DRAW_RADIUS = 10           # "Pinselgröße"
@@ -60,12 +62,10 @@ class DigitApp:
         self.pred_text.set("-")
 
     def predict(self):
-        """
-        A2: Dummy-Vorhersage.
-        In A4 ersetzen wir das durch echtes Modell-Inferencing.
-        """
-        # Dummy: zeig einfach eine fixe Ausgabe
-        self.pred_text.set("7  (dummy)")
+        x = pil_to_mnist_tensor(self.pil_img, invert=True, center_crop=True)
+        # A3: Noch kein echtes Modell -> wir zeigen Debug-Info
+        self.pred_text.set(f"Input ready: {x.shape}, min={x.min():.2f}, max={x.max():.2f} (dummy)")
+
 
 def main():
     root = tk.Tk()
