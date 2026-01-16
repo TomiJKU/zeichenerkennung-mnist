@@ -12,12 +12,19 @@ Das Projekt umfasst:
 
 ## Projektstruktur
 zeichenerkennung-mnist/
+
 ├── app/
+
 ├── training/
+
 ├── models/
+
 ├── report/
+
 ├── requirements.txt
+
 ├── .gitignore
+
 └── README.md
 
 ## Setup
