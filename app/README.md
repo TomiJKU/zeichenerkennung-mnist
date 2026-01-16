@@ -1,9 +1,3 @@
-
----
-
-## 📄 `app/README.md`
-
-```
 # GUI / App – Zeichenerkennung
 
 ## Überblick
