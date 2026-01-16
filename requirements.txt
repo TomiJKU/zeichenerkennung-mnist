@@ -5,3 +5,5 @@ scikit-learn
 matplotlib
 tf2onnx
 onnxruntime
+tensorflow
+tensorflow-datasets
