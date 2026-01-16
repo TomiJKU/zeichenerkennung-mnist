@@ -3,6 +3,8 @@ from tkinter import ttk
 from PIL import Image, ImageDraw
 from app.preprocessing import pil_to_mnist_tensor
 from app.inference import KerasDigitClassifier
+from app.storage import append_feedback, load_feedback, DEFAULT_FEEDBACK_FILE
+from app.metrics import confusion_matrix, format_confusion_matrix
 import os
 
 
@@ -36,6 +38,30 @@ class DigitApp:
         ttk.Label(controls, text="Model status:").grid(row=5, column=0, sticky="w", pady=(10,0))
         self.model_status_text = tk.StringVar(value=self.model_status)
         ttk.Label(controls, textvariable=self.model_status_text, wraplength=250).grid(row=6, column=0, sticky="w")
+
+        # --- Feedback UI ---
+        ttk.Separator(controls, orient="horizontal").grid(row=7, column=0, sticky="ew", pady=10)
+
+        ttk.Label(controls, text="Feedback:", font=("Arial", 11)).grid(row=8, column=0, sticky="w")
+
+        ttk.Label(controls, text="True Label (0-9):").grid(row=9, column=0, sticky="w", pady=(6, 0))
+        self.true_entry = ttk.Entry(controls, width=10)
+        self.true_entry.grid(row=10, column=0, sticky="w")
+
+        self.feedback_info = tk.StringVar(value=f"Speicher: {DEFAULT_FEEDBACK_FILE}")
+        ttk.Label(controls, textvariable=self.feedback_info, wraplength=260).grid(row=11, column=0, sticky="w", pady=(6, 0))
+
+        ttk.Button(controls, text="Richtig", command=self.feedback_correct).grid(row=12, column=0, sticky="ew", pady=(10, 4))
+        ttk.Button(controls, text="Falsch", command=self.feedback_wrong).grid(row=13, column=0, sticky="ew")
+
+        ttk.Separator(controls, orient="horizontal").grid(row=14, column=0, sticky="ew", pady=10)
+
+        ttk.Label(controls, text="Confusion Matrix:").grid(row=15, column=0, sticky="w")
+        self.cm_box = tk.Text(controls, width=38, height=12, font=("Courier", 10))
+        self.cm_box.grid(row=16, column=0, pady=(6, 0))
+
+        self.num_classes = 10
+        self.refresh_confusion_matrix()
 
 
         # --- Zeichenfläche: PIL Image im Hintergrund (für späteres Preprocessing) ---
@@ -87,6 +113,41 @@ class DigitApp:
         self._init_pil_surface()
         self.pred_text.set("-")
 
+    def refresh_confusion_matrix(self):
+        pairs = load_feedback()
+        cm = confusion_matrix(pairs, num_classes=self.num_classes)
+        text = format_confusion_matrix(cm)
+
+        self.cm_box.delete("1.0", tk.END)
+        self.cm_box.insert(tk.END, text)
+
+    def feedback_correct(self):
+        if self.last_pred is None:
+            self.pred_text.set("Erst Predict ausführen")
+            return
+
+        append_feedback(self.last_pred, self.last_pred)
+        self.refresh_confusion_matrix()
+
+    def feedback_wrong(self):
+        if self.last_pred is None:
+            self.pred_text.set("Erst Predict ausführen")
+            return
+
+        t = self.true_entry.get().strip()
+        if not t.isdigit():
+            self.pred_text.set("True Label eingeben (0-9)")
+            return
+
+        t = int(t)
+        if not (0 <= t < self.num_classes):
+            self.pred_text.set("True Label muss 0-9 sein")
+            return
+
+        append_feedback(t, self.last_pred)
+        self.refresh_confusion_matrix()
+
+
     def predict(self):
         x = pil_to_mnist_tensor(self.pil_img, invert=True)
 
@@ -97,6 +158,8 @@ class DigitApp:
 
         pred, conf, _ = self.classifier.predict(x)
         self.pred_text.set(f"{pred}  (p={conf:.2f})")
+        self.last_pred = pred
+
 
 
 def main():
