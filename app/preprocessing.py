@@ -17,8 +17,8 @@ def pil_to_mnist_tensor(pil_img, invert=True, do_transpose=True):
     x = np.array(pil_img).astype("float32") / 255.0  # (28,28)
 
     # 5) transpose to match EMNIST training (if enabled there)
-    if do_transpose:
-        x = x.T
+    #if do_transpose:
+        #x = x.T
 
     # 6) add batch + channel -> (1,28,28,1)
     x = x[None, ..., None]
