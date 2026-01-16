@@ -7,3 +7,4 @@ tf2onnx
 onnxruntime
 tensorflow
 tensorflow-datasets
+matplotlib
