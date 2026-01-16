@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageDraw
 from app.preprocessing import pil_to_mnist_tensor
+from app.inference import KerasDigitClassifier
+import os
+
 
 
 CANVAS_SIZE = 280          # 10x größer als 28, später downsampling
@@ -10,7 +13,9 @@ DRAW_RADIUS = 10           # "Pinselgröße"
 class DigitApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Zeichenerkennung (A2)")
+        self.root.title("Zeichenerkennung")
+        self.model_status = "initializing..."
+
 
         # --- Layout: links Canvas, rechts Controls ---
         self.canvas = tk.Canvas(root, width=CANVAS_SIZE, height=CANVAS_SIZE, bg="white")
@@ -28,12 +33,33 @@ class DigitApp:
         self.pred_text = tk.StringVar(value="-")
         ttk.Label(controls, textvariable=self.pred_text, font=("Arial", 18)).grid(row=4, column=0, sticky="w")
 
+        ttk.Label(controls, text="Model status:").grid(row=5, column=0, sticky="w", pady=(10,0))
+        self.model_status_text = tk.StringVar(value=self.model_status)
+        ttk.Label(controls, textvariable=self.model_status_text, wraplength=250).grid(row=6, column=0, sticky="w")
+
+
         # --- Zeichenfläche: PIL Image im Hintergrund (für späteres Preprocessing) ---
         self._init_pil_surface()
 
-        # --- Maus-Events fürs Zeichnen ---
+        # --- Maus-Events fürs Zeichnen
+    
         self.canvas.bind("<Button-1>", self._start_stroke)
         self.canvas.bind("<B1-Motion>", self._draw_stroke)
+
+        # --- Model setup ---
+        # Modellpfad: ../models/best_model.keras (vom app/ Ordner aus gesehen)
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_path = os.path.join(project_root, "models", "best_model.keras")
+
+        self.classifier = KerasDigitClassifier(model_path)
+        try:
+            self.classifier.load()
+            self.model_status = "loaded"
+        except Exception as e:
+            # App soll trotzdem laufen
+            self.model_status = f"not loaded: {e}"
+
+        self.model_status_text.set(self.model_status)
 
     def _init_pil_surface(self):
         # Weißer Hintergrund (L = 8-bit grayscale). Weiß = 255, Schwarz = 0
@@ -62,9 +88,15 @@ class DigitApp:
         self.pred_text.set("-")
 
     def predict(self):
-        x = pil_to_mnist_tensor(self.pil_img, invert=True, center_crop=True)
-        # A3: Noch kein echtes Modell -> wir zeigen Debug-Info
-        self.pred_text.set(f"Input ready: {x.shape}, min={x.min():.2f}, max={x.max():.2f} (dummy)")
+        x = pil_to_mnist_tensor(self.pil_img, invert=True)
+
+        # Falls Modell nicht geladen: klarer Hinweis
+        if not hasattr(self, "classifier") or self.classifier.model is None:
+            self.pred_text.set("Kein Modell geladen")
+            return
+
+        pred, conf, _ = self.classifier.predict(x)
+        self.pred_text.set(f"{pred}  (p={conf:.2f})")
 
 
 def main():
