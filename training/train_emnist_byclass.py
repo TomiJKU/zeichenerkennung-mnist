@@ -9,7 +9,7 @@ def preprocess(example):
     # Optional: "human-friendly" orientation:
     # TFDS Hinweis: EMNIST ist gedreht/gespiegelt. 
     # Für das Modell nicht zwingend nötig, aber okay:
-    x = tf.transpose(x, perm=[1, 0, 2])
+    #x = tf.transpose(x, perm=[1, 0, 2])
 
     return x, y
 
