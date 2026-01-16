@@ -1,11 +1,15 @@
 import tkinter as tk
+import numpy as np
+import os
 from tkinter import ttk
 from PIL import Image, ImageDraw
 from app.preprocessing import pil_to_mnist_tensor
 from app.inference import KerasDigitClassifier
-from app.storage import append_feedback, load_feedback, DEFAULT_FEEDBACK_FILE
 from app.metrics import confusion_matrix, format_confusion_matrix
-import os
+from app.storage import append_feedback, load_feedback, DEFAULT_FEEDBACK_FILE, reset_feedback
+from app.labels import label_to_char, char_to_label
+
+
 
 
 
@@ -17,6 +21,8 @@ class DigitApp:
         self.root = root
         self.root.title("Zeichenerkennung")
         self.model_status = "initializing..."
+        self.last_pred = None
+
 
 
         # --- Layout: links Canvas, rechts Controls ---
@@ -27,11 +33,13 @@ class DigitApp:
         controls.grid(row=0, column=1, sticky="n", padx=12, pady=12)
 
         ttk.Button(controls, text="Clear", command=self.clear).grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        ttk.Button(controls, text="Predict", command=self.predict).grid(row=1, column=0, sticky="ew")
+        self.predict_btn = ttk.Button(controls, text="Predict", command=self.predict)
+        self.predict_btn.grid(row=1, column=0, sticky="ew")
+
 
         ttk.Separator(controls, orient="horizontal").grid(row=2, column=0, sticky="ew", pady=10)
 
-        ttk.Label(controls, text="Vorhersage:", font=("Arial", 11)).grid(row=3, column=0, sticky="w")
+        ttk.Label(controls, text="Prediction (probability):", font=("Arial", 11)).grid(row=3, column=0, sticky="w")
         self.pred_text = tk.StringVar(value="-")
         ttk.Label(controls, textvariable=self.pred_text, font=("Arial", 18)).grid(row=4, column=0, sticky="w")
 
@@ -44,23 +52,50 @@ class DigitApp:
 
         ttk.Label(controls, text="Feedback:", font=("Arial", 11)).grid(row=8, column=0, sticky="w")
 
-        ttk.Label(controls, text="True Label (0-9):").grid(row=9, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(controls, text="True Label (0-9, A-Z, a-z):").grid(row=9, column=0, sticky="w", pady=(6, 0))
         self.true_entry = ttk.Entry(controls, width=10)
         self.true_entry.grid(row=10, column=0, sticky="w")
 
-        self.feedback_info = tk.StringVar(value=f"Speicher: {DEFAULT_FEEDBACK_FILE}")
+        self.feedback_info = tk.StringVar(value=f"{DEFAULT_FEEDBACK_FILE}")
         ttk.Label(controls, textvariable=self.feedback_info, wraplength=260).grid(row=11, column=0, sticky="w", pady=(6, 0))
 
-        ttk.Button(controls, text="Richtig", command=self.feedback_correct).grid(row=12, column=0, sticky="ew", pady=(10, 4))
-        ttk.Button(controls, text="Falsch", command=self.feedback_wrong).grid(row=13, column=0, sticky="ew")
+        ttk.Button(controls, text="RIGHT", command=self.feedback_correct).grid(row=12, column=0, sticky="ew", pady=(10, 4))
+        ttk.Button(controls, text="WRONG", command=self.feedback_wrong).grid(row=13, column=0, sticky="ew")
+        ttk.Button(controls, text="Reset Feedback", command=self.reset_feedback_ui).grid(row=14, column=0, sticky="ew", pady=(8, 0))
 
-        ttk.Separator(controls, orient="horizontal").grid(row=14, column=0, sticky="ew", pady=10)
+        ttk.Separator(controls, orient="horizontal").grid(row=15, column=0, sticky="ew", pady=10)
 
         ttk.Label(controls, text="Confusion Matrix:").grid(row=15, column=0, sticky="w")
-        self.cm_box = tk.Text(controls, width=38, height=12, font=("Courier", 10))
-        self.cm_box.grid(row=16, column=0, pady=(6, 0))
 
-        self.num_classes = 10
+        cm_frame = ttk.Frame(controls)
+        cm_frame.grid(row=16, column=0, pady=(6, 0), sticky="nsew")
+
+        xscroll = ttk.Scrollbar(cm_frame, orient="horizontal")
+        yscroll = ttk.Scrollbar(cm_frame, orient="vertical")
+
+        self.cm_box = tk.Text(
+            cm_frame,
+            width=70,
+            height=18,
+            font=("Courier", 11),
+            wrap="none",
+            xscrollcommand=xscroll.set,
+            yscrollcommand=yscroll.set,
+        )
+        xscroll.config(command=self.cm_box.xview)
+        yscroll.config(command=self.cm_box.yview)
+
+        self.cm_box.grid(row=0, column=0, sticky="nsew")
+        yscroll.grid(row=0, column=1, sticky="ns")
+        xscroll.grid(row=1, column=0, sticky="ew")
+
+        cm_frame.grid_rowconfigure(0, weight=1)
+        cm_frame.grid_columnconfigure(0, weight=1)
+
+        self.cm_box.tag_configure("diag", font=("Courier", 11, "bold"), foreground="blue")
+        self.cm_box.tag_configure("err", font=("Courier", 11, "bold"), foreground="red")
+
+        self.num_classes = 62
         self.refresh_confusion_matrix()
 
 
@@ -86,6 +121,16 @@ class DigitApp:
             self.model_status = f"not loaded: {e}"
 
         self.model_status_text.set(self.model_status)
+        if self.classifier.model is None:
+            self.predict_btn.state(["disabled"])
+        else:
+            self.predict_btn.state(["!disabled"])
+
+
+    def is_canvas_empty(self) -> bool:
+        arr = np.array(self.pil_img)  # Hintergrund weiß=255, Strich schwarz=0
+        # Wenn alles weiß ist, wurde nichts gezeichnet
+        return arr.min() == 255
 
     def _init_pil_surface(self):
         # Weißer Hintergrund (L = 8-bit grayscale). Weiß = 255, Schwarz = 0
@@ -112,14 +157,48 @@ class DigitApp:
         self.canvas.delete("all")
         self._init_pil_surface()
         self.pred_text.set("-")
+        self.last_pred = None
 
     def refresh_confusion_matrix(self):
-        pairs = load_feedback()
+        pairs = load_feedback(DEFAULT_FEEDBACK_FILE)
         cm = confusion_matrix(pairs, num_classes=self.num_classes)
-        text = format_confusion_matrix(cm)
 
         self.cm_box.delete("1.0", tk.END)
-        self.cm_box.insert(tk.END, text)
+
+        # Header: Zeichen anzeigen (0-9, A-Z, a-z)
+        self.cm_box.insert(tk.END, "    ")
+        for j in range(self.num_classes):
+            ch = label_to_char(j)
+            self.cm_box.insert(tk.END, f"{ch:>4s}")
+        self.cm_box.insert(tk.END, "\n")
+
+        self.cm_box.insert(tk.END, "    " + "-" * (4 * self.num_classes) + "\n")
+
+        # Rows
+        for i in range(self.num_classes):
+            row_ch = label_to_char(i)
+            self.cm_box.insert(tk.END, f"{row_ch:>2s}: ")
+
+            for j in range(self.num_classes):
+                val = int(cm[i, j])
+                cell = f"{val:4d}"
+
+                if val == 0:
+                    self.cm_box.insert(tk.END, cell)
+                else:
+                    tag = "diag" if i == j else "err"
+                    self.cm_box.insert(tk.END, cell, tag)
+
+            self.cm_box.insert(tk.END, "\n")
+
+
+
+
+    def reset_feedback_ui(self):
+        reset_feedback(DEFAULT_FEEDBACK_FILE)
+        self.refresh_confusion_matrix()
+        self.pred_text.set("Feedback zurückgesetzt")
+
 
     def feedback_correct(self):
         if self.last_pred is None:
@@ -128,28 +207,34 @@ class DigitApp:
 
         append_feedback(self.last_pred, self.last_pred)
         self.refresh_confusion_matrix()
+        self.true_entry.delete(0, tk.END)
+
 
     def feedback_wrong(self):
         if self.last_pred is None:
             self.pred_text.set("Erst Predict ausführen")
             return
 
-        t = self.true_entry.get().strip()
-        if not t.isdigit():
-            self.pred_text.set("True Label eingeben (0-9)")
+        try:
+            t = char_to_label(self.true_entry.get())
+        except ValueError as e:
+            self.pred_text.set(str(e))
             return
 
-        t = int(t)
-        if not (0 <= t < self.num_classes):
-            self.pred_text.set("True Label muss 0-9 sein")
-            return
-
-        append_feedback(t, self.last_pred)
+        append_feedback(t, self.last_pred, DEFAULT_FEEDBACK_FILE)
         self.refresh_confusion_matrix()
+        self.true_entry.delete(0, tk.END)
+        self.pred_text.set("Feedback gespeichert")
+
 
 
     def predict(self):
-        x = pil_to_mnist_tensor(self.pil_img, invert=True)
+        if self.is_canvas_empty():
+            self.pred_text.set("Bitte zuerst zeichnen")
+            return
+
+        x = pil_to_mnist_tensor(self.pil_img, invert=True, do_transpose=True)
+
 
         # Falls Modell nicht geladen: klarer Hinweis
         if not hasattr(self, "classifier") or self.classifier.model is None:
@@ -157,7 +242,7 @@ class DigitApp:
             return
 
         pred, conf, _ = self.classifier.predict(x)
-        self.pred_text.set(f"{pred}  (p={conf:.2f})")
+        self.pred_text.set(f"{label_to_char(pred)}  (p={conf:.2f})")
         self.last_pred = pred
 
 

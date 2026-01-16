@@ -23,7 +23,7 @@ def main():
     x_train = (x_train.astype("float32") / 255.0)[..., None]  # (N,28,28,1)
     x_test = (x_test.astype("float32") / 255.0)[..., None]
 
-    num_classes = 10
+    num_classes = 61
 
     # --- Kleines CNN (gut genug für Demo) ---
     model = keras.Sequential(

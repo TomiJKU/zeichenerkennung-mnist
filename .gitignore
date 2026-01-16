@@ -21,4 +21,5 @@ app/feedback.csv
 # Models (optional – je nach Absprache)
 *.h5
 *.keras
+!models/best_model.keras
 *.onnx

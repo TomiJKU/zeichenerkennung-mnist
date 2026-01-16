@@ -38,3 +38,9 @@ def load_feedback(path: str = DEFAULT_FEEDBACK_FILE) -> List[Tuple[int, int]]:
                 continue
     return rows
 
+def reset_feedback(path: str = DEFAULT_FEEDBACK_FILE) -> None:
+    """Löscht Feedback-Datei (falls vorhanden) und legt sie neu mit Header an."""
+    if os.path.exists(path):
+        os.remove(path)
+    ensure_feedback_file(path)
+
