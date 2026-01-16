@@ -12,6 +12,7 @@ Das Projekt umfasst:
 
 ## Projektstruktur
 zeichenerkennung-mnist/
+
 ├── app/
 
 ├── training/
