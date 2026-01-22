@@ -52,7 +52,7 @@ def main():
     ])
 
     model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    model.fit(ds_train_final, epochs=10, validation_data=ds_test_final)
+    model.fit(ds_train_final, epochs=500, validation_data=ds_test_final)
     model.save(out_path)
     print("Saved:", out_path)
 
