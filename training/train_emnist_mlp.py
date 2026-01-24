@@ -42,7 +42,7 @@ def main():
         metrics=["accuracy"]
     )
 
-    model.fit(ds_train, epochs=10, validation_data=ds_test)
+    model.fit(ds_train, epochs=30, validation_data=ds_test)
     model.save(out_path)
     print("Saved:", out_path)
 
