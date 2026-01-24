@@ -21,7 +21,7 @@ def preprocess(x, y):
 
 def main():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    out_path = os.path.join(project_root, "models", "best_model.keras")
+    out_path = os.path.join(project_root, "models", "emnit_cnn.keras")
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     ds_train = tfds.load("emnist/byclass", split="train", as_supervised=True)
@@ -32,8 +32,9 @@ def main():
     ds_test_mapped  = ds_test.map(preprocess,  num_parallel_calls=tf.data.AUTOTUNE)
 
     # DEBUG: Sample nach Preprocessing (ohne batch!)
-    show_sample(ds_train_mapped, title="EMNIST after preprocessing")# einfacher:
-    # show_sample(ds_train_mapped.unbatch(), title="EMNIST after preprocessing")
+    # ds_train_mapped ist (noch) ungebatcht, perfekt für Preview
+    preview = ds_train_mapped.shuffle(10_000, reshuffle_each_iteration=True)
+    show_sample(preview, title="Random EMNIST sample")
 
     # dann erst batchen
     ds_train_final = ds_train_mapped.shuffle(10_000).batch(128).prefetch(tf.data.AUTOTUNE)
@@ -52,7 +53,7 @@ def main():
     ])
 
     model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    model.fit(ds_train_final, epochs=500, validation_data=ds_test_final)
+    model.fit(ds_train_final, epochs=1, validation_data=ds_test_final)
     model.save(out_path)
     print("Saved:", out_path)
 
