@@ -21,7 +21,7 @@ def preprocess(x, y):
 
 def main():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    out_path = os.path.join(project_root, "models", "emnit_cnn.keras")
+    out_path = os.path.join(project_root, "models", "emnist_cnn.keras")
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     ds_train = tfds.load("emnist/byclass", split="train", as_supervised=True)
