@@ -3,23 +3,24 @@ import numpy as np
 import os
 from tkinter import ttk
 from PIL import Image, ImageDraw
+
 from app.preprocessing import pil_to_mnist_tensor
-from app.inference import KerasDigitClassifier
+from app.inference import KerasDigitClassifier, SklearnPipelineClassifier
 from app.metrics import confusion_matrix
 from app.storage import append_feedback, load_feedback, DEFAULT_FEEDBACK_FILE, reset_feedback
 from app.labels import label_to_char, char_to_label
 
+
 AVAILABLE_MODELS = [
-    ("EMNIST CNN",    "emnist_cnn.keras"),
-    ("EMNIST MLP",    "emnist_mlp.keras"),
-    ("EMNIST LogReg", "emnist_logreg.keras"),
+    ("EMNIST CNN",      "emnist_cnn.keras"),
+    ("EMNIST MLP",      "emnist_mlp.keras"),
+    ("EMNIST LogReg",   "emnist_logreg.keras"),
+    ("EMNIST PCA+RF",   "PCA_randomForest_emnist_byclass.joblib"),  # <-- dein Filename
 ]
 
+CANVAS_SIZE = 280
+DRAW_RADIUS = 10
 
-
-
-CANVAS_SIZE = 280          # 10x größer als 28, später downsampling
-DRAW_RADIUS = 10           # "Pinselgröße"
 
 class DigitApp:
     def __init__(self, root: tk.Tk):
@@ -27,8 +28,7 @@ class DigitApp:
         self.root.title("Zeichenerkennung")
         self.model_status = "initializing..."
         self.last_pred = None
-
-
+        self.classifier = None
 
         # --- Layout: links Canvas, rechts Controls ---
         self.canvas = tk.Canvas(root, width=CANVAS_SIZE, height=CANVAS_SIZE, bg="white")
@@ -50,11 +50,9 @@ class DigitApp:
         self.model_combo.grid(row=1, column=0, sticky="ew", pady=(4, 8))
         self.model_combo.bind("<<ComboboxSelected>>", self.on_model_change)
 
-
         ttk.Button(controls, text="Clear", command=self.clear).grid(row=2, column=0, sticky="ew", pady=(0, 8))
         self.predict_btn = ttk.Button(controls, text="Predict", command=self.predict)
         self.predict_btn.grid(row=3, column=0, sticky="ew")
-
 
         ttk.Separator(controls, orient="horizontal").grid(row=4, column=0, sticky="ew", pady=10)
 
@@ -62,7 +60,7 @@ class DigitApp:
         self.pred_text = tk.StringVar(value="-")
         ttk.Label(controls, textvariable=self.pred_text, font=("Arial", 18)).grid(row=6, column=0, sticky="w")
 
-        ttk.Label(controls, text="Model status:").grid(row=7, column=0, sticky="w", pady=(10,0))
+        ttk.Label(controls, text="Model status:").grid(row=7, column=0, sticky="w", pady=(10, 0))
         self.model_status_text = tk.StringVar(value=self.model_status)
         ttk.Label(controls, textvariable=self.model_status_text, wraplength=250).grid(row=8, column=0, sticky="w")
 
@@ -117,19 +115,16 @@ class DigitApp:
         self.num_classes = 62
         self.refresh_confusion_matrix()
 
-
-        # --- Zeichenfläche: PIL Image im Hintergrund (für späteres Preprocessing) ---
+        # --- Zeichenfläche: PIL Image im Hintergrund ---
         self._init_pil_surface()
 
-        # --- Maus-Events fürs Zeichnen
-    
+        # --- Maus-Events fürs Zeichnen ---
         self.canvas.bind("<Button-1>", self._start_stroke)
         self.canvas.bind("<B1-Motion>", self._draw_stroke)
 
         # --- Model setup ---
-        
         self.load_selected_model()
-        if self.classifier is None or self.classifier.model is None:
+        if self.classifier is None or not self.classifier.is_loaded():
             self.predict_btn.state(["disabled"])
         else:
             self.predict_btn.state(["!disabled"])
@@ -139,7 +134,7 @@ class DigitApp:
         self.pred_text.set("-")
         self.load_selected_model()
 
-        if self.classifier is None or self.classifier.model is None:
+        if self.classifier is None or not self.classifier.is_loaded():
             self.predict_btn.state(["disabled"])
         else:
             self.predict_btn.state(["!disabled"])
@@ -161,29 +156,32 @@ class DigitApp:
             return
 
         model_path = os.path.join(project_root, "models", filename)
-        self.classifier = KerasDigitClassifier(model_path)
 
         try:
+            if filename.endswith(".keras") or filename.endswith(".h5"):
+                self.classifier = KerasDigitClassifier(model_path)
+            elif filename.endswith(".joblib") or filename.endswith(".pkl"):
+                self.classifier = SklearnPipelineClassifier(model_path)
+            else:
+                raise ValueError(f"Unsupported model format: {filename}")
+
             self.classifier.load()
             self.model_status = f"loaded: {filename}"
         except Exception as e:
+            self.classifier = None
             self.model_status = f"not loaded: {e}"
 
         self.model_status_text.set(self.model_status)
 
-
     def is_canvas_empty(self) -> bool:
-        arr = np.array(self.pil_img)  # Hintergrund weiß=255, Strich schwarz=0
-        # Wenn alles weiß ist, wurde nichts gezeichnet
+        arr = np.array(self.pil_img)
         return arr.min() == 255
 
     def _init_pil_surface(self):
-        # Weißer Hintergrund (L = 8-bit grayscale). Weiß = 255, Schwarz = 0
         self.pil_img = Image.new("L", (CANVAS_SIZE, CANVAS_SIZE), color=255)
         self.pil_draw = ImageDraw.Draw(self.pil_img)
 
     def _start_stroke(self, event):
-        # optional: könnte man später für "letzte Position" nutzen
         self._draw_at(event.x, event.y)
 
     def _draw_stroke(self, event):
@@ -191,12 +189,8 @@ class DigitApp:
 
     def _draw_at(self, x: int, y: int):
         r = DRAW_RADIUS
-
-        # Auf Tkinter-Canvas zeichnen (sichtbar)
         self.canvas.create_oval(x - r, y - r, x + r, y + r, fill="black", outline="black")
-
-        # Parallel ins PIL-Image zeichnen (für ML)
-        self.pil_draw.ellipse((x - r, y - r, x + r, y + r), fill=0)  # schwarz
+        self.pil_draw.ellipse((x - r, y - r, x + r, y + r), fill=0)
 
     def clear(self):
         self.canvas.delete("all")
@@ -210,7 +204,6 @@ class DigitApp:
 
         self.cm_box.delete("1.0", tk.END)
 
-        # Header: Zeichen anzeigen (0-9, A-Z, a-z)
         self.cm_box.insert(tk.END, "    ")
         for j in range(self.num_classes):
             ch = str(label_to_char(j))
@@ -219,7 +212,6 @@ class DigitApp:
 
         self.cm_box.insert(tk.END, "    " + "-" * (4 * self.num_classes) + "\n")
 
-        # Rows
         for i in range(self.num_classes):
             row_ch = str(label_to_char(i))
             self.cm_box.insert(tk.END, f"{row_ch:>2s}: ")
@@ -236,14 +228,10 @@ class DigitApp:
 
             self.cm_box.insert(tk.END, "\n")
 
-
-
-
     def reset_feedback_ui(self):
         reset_feedback(DEFAULT_FEEDBACK_FILE)
         self.refresh_confusion_matrix()
         self.pred_text.set("Feedback zurückgesetzt")
-
 
     def feedback_correct(self):
         if self.last_pred is None:
@@ -251,10 +239,8 @@ class DigitApp:
             return
 
         append_feedback(self.last_pred, self.last_pred, DEFAULT_FEEDBACK_FILE)
-
         self.refresh_confusion_matrix()
         self.true_entry.delete(0, tk.END)
-
 
     def feedback_wrong(self):
         if self.last_pred is None:
@@ -268,12 +254,9 @@ class DigitApp:
             return
 
         append_feedback(t, self.last_pred, DEFAULT_FEEDBACK_FILE)
-
         self.refresh_confusion_matrix()
         self.true_entry.delete(0, tk.END)
         self.pred_text.set("Feedback gespeichert")
-
-
 
     def predict(self):
         if self.is_canvas_empty():
@@ -282,21 +265,21 @@ class DigitApp:
 
         x = pil_to_mnist_tensor(self.pil_img, invert=True, do_transpose=True)
 
-
-        # Falls Modell nicht geladen: klarer Hinweis
-        if not hasattr(self, "classifier") or self.classifier.model is None:
+        if self.classifier is None or not self.classifier.is_loaded():
             self.pred_text.set("Kein Modell geladen")
             return
 
-        pred, conf, _ = self.classifier.predict(x)
-        self.pred_text.set(f"{label_to_char(pred)}  (p={conf:.2f})")
-        self.last_pred = pred
-
+        try:
+            pred, conf, _ = self.classifier.predict(x)
+            self.pred_text.set(f"{label_to_char(pred)}  (p={conf:.2f})")
+            self.last_pred = pred
+        except Exception as e:
+            self.pred_text.set(f"Predict-Fehler: {e}")
+            self.last_pred = None
 
 
 def main():
     root = tk.Tk()
-    # ttk theme ist optional, sieht aber meist besser aus
     try:
         style = ttk.Style()
         style.theme_use("clam")
@@ -305,6 +288,7 @@ def main():
 
     DigitApp(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()
