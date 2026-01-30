@@ -2,12 +2,7 @@ import tkinter as tk
 import numpy as np
 import os
 from tkinter import ttk
-<<<<<<< HEAD
-from PIL import Image, ImageDraw
-
-=======
 from PIL import Image, ImageDraw, ImageTk
->>>>>>> 760cd16 (fix(gui): debug window for input + transpose and prediction)
 from app.preprocessing import pil_to_mnist_tensor
 from app.inference import KerasDigitClassifier, SklearnPipelineClassifier
 from app.metrics import confusion_matrix
