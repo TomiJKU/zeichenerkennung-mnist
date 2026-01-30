@@ -319,7 +319,6 @@ class DigitApp:
         # Transpose für Modell
         x_model = x.transpose(0, 2, 1, 3)  # (1,28,28,1)
 
-<<<<<<< HEAD
         if self.classifier is None or not self.classifier.is_loaded():
             self.pred_text.set("Kein Modell geladen")
             return
@@ -332,7 +331,6 @@ class DigitApp:
             self.pred_text.set(f"Predict-Fehler: {e}")
             self.last_pred = None
 
-=======
 
         # Debug: beide anzeigen
         self._update_debug_window(x, x_model)
@@ -344,7 +342,6 @@ class DigitApp:
         pred, conf, _ = self.classifier.predict(x_model)
         self.pred_text.set(f"{label_to_char(pred)}  (p={conf:.2f})")
         self.last_pred = pred
->>>>>>> 760cd16 (fix(gui): debug window for input + transpose and prediction)
 
 def main():
     root = tk.Tk()
