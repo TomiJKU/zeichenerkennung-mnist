@@ -2,8 +2,7 @@ import tkinter as tk
 import numpy as np
 import os
 from tkinter import ttk
-from PIL import Image, ImageDraw
-
+from PIL import Image, ImageDraw, ImageTk
 from app.preprocessing import pil_to_mnist_tensor
 from app.inference import KerasDigitClassifier, SklearnPipelineClassifier
 from app.metrics import confusion_matrix
@@ -198,6 +197,53 @@ class DigitApp:
         self.pred_text.set("-")
         self.last_pred = None
 
+    def _ensure_debug_window(self):
+        if hasattr(self, "_dbg_win") and self._dbg_win is not None and self._dbg_win.winfo_exists():
+            return
+
+        self._dbg_win = tk.Toplevel(self.root)
+        self._dbg_win.title("Debug Input (28x28)")
+        self._dbg_win.resizable(False, False)
+
+        frm = ttk.Frame(self._dbg_win, padding=10)
+        frm.grid(row=0, column=0)
+
+        ttk.Label(frm, text="Input (nach Preprocessing)").grid(row=0, column=0)
+        ttk.Label(frm, text="Transponiert (für Modell)").grid(row=0, column=1)
+
+        # Platzhalterbilder
+        placeholder = Image.new("L", (140, 140), color=255)
+        ph = ImageTk.PhotoImage(placeholder)
+
+        self._dbg_photo_in = ph
+        self._dbg_photo_tr = ph
+
+        self._dbg_label_in = ttk.Label(frm, image=self._dbg_photo_in)
+        self._dbg_label_tr = ttk.Label(frm, image=self._dbg_photo_tr)
+
+        self._dbg_label_in.grid(row=1, column=0, padx=8, pady=8)
+        self._dbg_label_tr.grid(row=1, column=1, padx=8, pady=8)
+
+    def _update_debug_window(self, x, x_model):
+        self._ensure_debug_window()
+
+        # x und x_model sind typischerweise (1,28,28,1) float32 0..1
+        img_in = (x[0, :, :, 0] * 255).astype(np.uint8)
+        img_tr = (x_model[0, :, :, 0] * 255).astype(np.uint8)
+
+        pil_in = Image.fromarray(img_in)   # mode weglassen -> keine Deprecation
+        pil_tr = Image.fromarray(img_tr)
+
+        pil_in = pil_in.resize((140, 140), Image.Resampling.NEAREST)
+        pil_tr = pil_tr.resize((140, 140), Image.Resampling.NEAREST)
+
+        self._dbg_photo_in = ImageTk.PhotoImage(pil_in)
+        self._dbg_photo_tr = ImageTk.PhotoImage(pil_tr)
+
+        self._dbg_label_in.configure(image=self._dbg_photo_in)
+        self._dbg_label_tr.configure(image=self._dbg_photo_tr)
+
+    
     def refresh_confusion_matrix(self):
         pairs = load_feedback(DEFAULT_FEEDBACK_FILE)
         cm = confusion_matrix(pairs, num_classes=self.num_classes)
@@ -263,7 +309,10 @@ class DigitApp:
             self.pred_text.set("Bitte zuerst zeichnen")
             return
 
-        x = pil_to_mnist_tensor(self.pil_img, invert=True, do_transpose=True)
+        x = pil_to_mnist_tensor(self.pil_img, invert=True, do_transpose=False)  # NICHT transponieren
+
+        # Transpose für Modell
+        x_model = x.transpose(0, 2, 1, 3)  # (1,28,28,1)
 
         if self.classifier is None or not self.classifier.is_loaded():
             self.pred_text.set("Kein Modell geladen")
@@ -277,6 +326,17 @@ class DigitApp:
             self.pred_text.set(f"Predict-Fehler: {e}")
             self.last_pred = None
 
+
+        # Debug: beide anzeigen
+        self._update_debug_window(x, x_model)
+
+        if not hasattr(self, "classifier") or self.classifier is None or self.classifier.model is None:
+            self.pred_text.set("Kein Modell geladen")
+            return
+
+        pred, conf, _ = self.classifier.predict(x_model)
+        self.pred_text.set(f"{label_to_char(pred)}  (p={conf:.2f})")
+        self.last_pred = pred
 
 def main():
     root = tk.Tk()
