@@ -8,3 +8,4 @@ onnxruntime
 tensorflow
 tensorflow-datasets
 matplotlib
+scikit-image
