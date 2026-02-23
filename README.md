@@ -65,26 +65,33 @@ zeichenerkennung-mnist/
 
 ```bash
 git clone https://github.com/TomiJKU/zeichenerkennung-mnist.git
-cd zeichenerkennung-mnist
+```
 ```bash
+cd zeichenerkennung-mnist
+```
 
 ### Virtuelle Umgebung
+```bash
 python -m venv .venv
-
+```
 ### Aktivieren:
 - Windows (PowerShell):
+```bash
 .\.venv\Scripts\Activate.ps1
-
+```
 -macOS/Linux:
+```bash
 source .venv/bin/activate
-
+```
 ### Abhängigkeiten installieren
+```bash
 pip install -r requirements.txt
-
+```
 ### GUI starten
 Aus dem Repository-Root:
+```bash
 python -m app.gui_complete
-
+```
 ### Modelle
 Die GUI lädt die Modelle aus den jeweiligen Modellordnern:
 - CNN/models/*.keras
