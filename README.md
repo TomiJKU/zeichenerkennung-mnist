@@ -1,58 +1,74 @@
-# Zeichenerkennung – MNIST & EMNIST mit GUI, Feedback und Confusion Matrix
+# Zeichenerkennung – EMNIST ByClass (62 Klassen) mit GUI + Multi-Model (CNN / MLP / SVM)
 
-## Ziel des Projekts
-Ziel dieses Projekts ist die Entwicklung eines Modells zur Erkennung handschriftlicher Zeichen sowie dessen Einsatz in einer grafischen Applikation (GUI).
+Dieses Projekt implementiert eine GUI zur Erkennung handschriftlicher Zeichen (EMNIST ByClass: **0–9, A–Z, a–z** = **62 Klassen**) und lädt mehrere Klassifikatoren (CNN, MLP, Linear SVM/HOG). Optional kann ein Ensemble (Soft Voting) verwendet werden.
 
-Das Projekt umfasst:
-- Training eines neuronalen Netzes auf MNIST (Ziffern 0–9)
-- Erweiterung auf EMNIST ByClass (62 Klassen: 0–9, A–Z, a–z)
-- Deployment des Modells in einer GUI
-- Benutzerfeedback (richtig/falsch)
-- Laufend aktualisierte Confusion Matrix basierend auf gespeichertem Feedback
+## Features
 
-## Projektstruktur
+- **GUI (Tkinter)**: Zeichnen am Canvas, Vorhersage per Klick
+- **Mehrere Modelle**:
+  - CNN (Keras)
+  - MLP (Keras)
+  - Linear SVM auf HOG-Features (joblib)
+  - Optional: **Ensemble** (Soft Voting, z. B. CNN + SVM)
+- **Top-k Predictions** (z. B. Top-3) inkl. Wahrscheinlichkeiten/Confidence
+- Strukturierte Trennung von:
+  - Preprocessing
+  - Inference/Model-Loading
+  - GUI
+
+## Projektstruktur (Zielzustand nach Umstellung)
+
+> Hinweis: In der aktuellen Historie existierte zeitweise ein Ordner `Test/`. Dieser wird/ wurde in die Projektwurzel „hochgezogen“, damit Imports und Startkommandos wieder konsistent sind. :contentReference[oaicite:2]{index=2}
+
+finaler Root:
 zeichenerkennung-mnist/
+├─ app/
+│ ├─ gui_complete.py # GUI Einstiegspunkt (python -m app.gui_complete)
+│ ├─ labels.py # Label↔Char Mapping
+│ └─ ...
+├─ CNN/
+│ ├─ app/ # preprocessing_cnn.py, inference_cnn.py, ...
+│ └─ models/ # *.keras
+├─ MLP/
+│ ├─ app/ # preprocessing_mlp.py, inference_mlp.py, ...
+│ └─ models/ # *.keras
+├─ SVM/
+│ ├─ app/ # preprocessing_hog_svm.py, inference_hog_svm.py, ...
+│ └─ models/ # *.joblib
+├─ training/ # Trainingsskripte (optional je nach Stand)
+├─ report/ # Dokumentation/Abgabe
+├─ requirements.txt
+├─ README.md
+└─deprecated_old_root/ # Legacy-Code, nicht mehr aktiv verwendet
 
-├── app/
-
-├── training/
-
-├── models/
-
-├── report/
-
-├── requirements.txt
-
-├── .gitignore
-
-└── README.md
 
 ## Setup
+
 ### Repository klonen
+
 ```bash
 git clone https://github.com/TomiJKU/zeichenerkennung-mnist.git
 cd zeichenerkennung-mnist
 
-```
-## Virtuelle Umgebung
-```bash
+### Virtuelle Umgebung
 python -m venv .venv
-```
-## Aktivieren:
 
-- Windows: .venv\Scripts\Activate.ps1
-- macOS/Linux: source .venv/bin/activate
+### Aktivieren:
+- Windows (PowerShell):
+.\.venv\Scripts\Activate.ps1
 
-## Abhängigkeiten installieren
-```bash
+-macOS/Linux:
+source .venv/bin/activate
+
+### Abhängigkeiten installieren
 pip install -r requirements.txt
-```
 
-## GUI starten
-python -m app.gui
+### GUI starten
+Aus dem Repository-Root:
+python -m app.gui_complete
 
-## Training (EMNIST – 62 Klassen)
-```bash
-python -m training.train_emnist_byclass
-```
-Das Modell wird unter models/best_model.keras gespeichert.
+### Modelle
+Die GUI lädt die Modelle aus den jeweiligen Modellordnern:
+- CNN/models/*.keras
+- MLP/models/*.keras
+- SVM/models/*.joblib
