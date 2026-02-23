@@ -66,6 +66,7 @@ zeichenerkennung-mnist/
 ```bash
 git clone https://github.com/TomiJKU/zeichenerkennung-mnist.git
 cd zeichenerkennung-mnist
+```bash
 
 ### Virtuelle Umgebung
 python -m venv .venv
