@@ -6,19 +6,19 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 # --- CNN ---
-from Test.CNN.app.preprocessing_cnn import pil_to_emnist_cnn_tensor
-from Test.CNN.app.inference_cnn import CNNDigitClassifier
+from CNN.app.preprocessing_cnn import pil_to_emnist_cnn_tensor
+from CNN.app.inference_cnn import CNNDigitClassifier
 
 # --- MLP ---
-from Test.MLP.app.preprocessing_mlp import pil_to_emnist_mlp_vector
-from Test.MLP.app.inference_mlp import MLPDigitClassifier
+from MLP.app.preprocessing_mlp import pil_to_emnist_mlp_vector
+from MLP.app.inference_mlp import MLPDigitClassifier
 
 # --- SVM (HOG) ---
-from Test.SVM.app.preprocessing_hog_svm import hog_features_from_pil
-from Test.SVM.app.inference_hog_svm import HOGLinearSVMClassifier
+from SVM.app.preprocessing_hog_svm import hog_features_from_pil
+from SVM.app.inference_hog_svm import HOGLinearSVMClassifier
 
-# --- Label mapping (du hast es unter Test/app/labels.py) ---
-from Test.app.labels import label_to_char
+# --- Label mapping (du hast es unter app/labels.py) ---
+from app.labels import label_to_char
 
 
 CANVAS_SIZE = 280
@@ -32,10 +32,10 @@ W_SVM = 0.40
 
 def repo_root_from_this_file(file_path: str) -> str:
     """
-    file_path = .../zeichenerkennung-mnist/Test/app/gui_complete.py
+    file_path = .../zeichenerkennung-mnist/app/gui_complete.py
     repo_root = .../zeichenerkennung-mnist
     """
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(file_path))))
+    return os.path.dirname(os.path.dirname(os.path.abspath(file_path)))
 
 
 def topk_from_probs(probs: np.ndarray, k: int = 3):
@@ -223,15 +223,15 @@ class AllModelsTop3GUI:
         repo_root = repo_root_from_this_file(__file__)
 
         # --- paths inside Test/ ---
-        cnn_best = os.path.join(repo_root, "Test", "CNN", "models", "emnist_cnn_best.keras")
-        cnn_fallback = os.path.join(repo_root, "Test", "CNN", "models", "emnist_cnn_aug.keras")
+        cnn_best = os.path.join(repo_root, "CNN", "models", "emnist_cnn_best.keras")
+        cnn_fallback = os.path.join(repo_root, "CNN", "models", "emnist_cnn_aug.keras")
         cnn_path = cnn_best if os.path.exists(cnn_best) else cnn_fallback
 
-        mlp_best = os.path.join(repo_root, "Test", "MLP", "models", "emnist_mlp_best.keras")
-        mlp_fallback = os.path.join(repo_root, "Test", "MLP", "models", "emnist_mlp.keras")
+        mlp_best = os.path.join(repo_root, "MLP", "models", "emnist_mlp_best.keras")
+        mlp_fallback = os.path.join(repo_root, "MLP", "models", "emnist_mlp.keras")
         mlp_path = mlp_best if os.path.exists(mlp_best) else mlp_fallback
 
-        svm_path = os.path.join(repo_root, "Test", "SVM", "models", "emnist_hog_linear_svm.joblib")
+        svm_path = os.path.join(repo_root, "SVM", "models", "emnist_hog_linear_svm.joblib")
 
         # Load CNN
         try:

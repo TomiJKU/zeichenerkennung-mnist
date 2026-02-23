@@ -10,7 +10,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from matplotlib.colors import LogNorm
 from skimage.feature import hog
 
-from Test.app.labels import label_to_char
+from app.labels import label_to_char
 
 
 # =========================

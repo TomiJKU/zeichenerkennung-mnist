@@ -1,0 +1,11 @@
+numpy
+pillow
+tensorflow
+scikit-learn
+matplotlib
+tf2onnx
+onnxruntime
+tensorflow
+tensorflow-datasets
+matplotlib
+scikit-image
