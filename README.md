@@ -23,23 +23,40 @@ Dieses Projekt implementiert eine GUI zur Erkennung handschriftlicher Zeichen (E
 finaler Root:
 zeichenerkennung-mnist/
 ├─ app/
+
 │ ├─ gui_complete.py # GUI Einstiegspunkt (python -m app.gui_complete)
+
 │ ├─ labels.py # Label↔Char Mapping
+
 │ └─ ...
+
 ├─ CNN/
+
 │ ├─ app/ # preprocessing_cnn.py, inference_cnn.py, ...
+
 │ └─ models/ # *.keras
+
 ├─ MLP/
 │ ├─ app/ # preprocessing_mlp.py, inference_mlp.py, ...
+
 │ └─ models/ # *.keras
+
 ├─ SVM/
+
 │ ├─ app/ # preprocessing_hog_svm.py, inference_hog_svm.py, ...
+
 │ └─ models/ # *.joblib
+
 ├─ training/ # Trainingsskripte (optional je nach Stand)
+
 ├─ report/ # Dokumentation/Abgabe
+
 ├─ requirements.txt
+
 ├─ README.md
+
 └─deprecated_old_root/ # Legacy-Code, nicht mehr aktiv verwendet
+
 
 
 ## Setup
