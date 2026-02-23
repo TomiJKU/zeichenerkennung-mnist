@@ -79,7 +79,7 @@ python -m venv .venv
 ```bash
 .\.venv\Scripts\Activate.ps1
 ```
--macOS/Linux:
+- macOS/Linux:
 ```bash
 source .venv/bin/activate
 ```
